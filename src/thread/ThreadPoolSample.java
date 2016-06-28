@@ -66,12 +66,36 @@ public class ThreadPoolSample {
         }
     }
 
+    private void callCachedThreadPool(int taskNum) throws InterruptedException, ExecutionException {
+        final AtomicInteger threadNumber = new AtomicInteger(1);
+        ExecutorService ex = Executors.newCachedThreadPool(r -> {
+            // この処理は新規スレッド作成時しか実行されない（キャッシュ利用時は実行されない）
+            Thread t = new Thread(r);
+            t.setName(String.format("%d", threadNumber.getAndIncrement()));
+            return t;
+        });
+        List<Future<Integer>> fs = new ArrayList<Future<Integer>>();
+        for (int i = 0; i < taskNum; i++) {
+            final int taskNo = i + 1;
+            fs.add(ex.submit(() -> {
+                return Integer.parseInt(Thread.currentThread().getName());
+            }));
+        }
+        ex.shutdown();
+        int threadPeek = -1;
+        for (Future<Integer> f : fs) {
+            threadPeek = Math.max(threadPeek, f.get());
+        }
+        System.out.println(String.format("taskNum[%d] - threadPeek[%d]", taskNum, threadPeek));
+    }
+
     public static void main(String[] args) {
         try {
             ThreadPoolSample sample = new ThreadPoolSample();
             sample.runSingleThreadExecutor(5);
             sample.runFixedThreadPool(10, 3);
             sample.callFixedThreadPool(10, 3);
+            sample.callCachedThreadPool(100);
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }
